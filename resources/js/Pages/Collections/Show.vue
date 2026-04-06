@@ -49,7 +49,7 @@ defineProps({
                     {{ collection.name }}
                 </h1>
                 <p class="max-w-2xl text-base leading-8 text-slate-300">
-                    {{ collection.description || 'Use collection pages for seasonal campaigns, merchandising edits, and category-led discovery.' }}
+                    {{ collection.description || 'Use collection landing pages for campaigns, themed edits, and category-led discovery that makes large catalogs easier to browse.' }}
                 </p>
             </div>
         </div>
@@ -66,7 +66,7 @@ defineProps({
     <section v-else class="glass-panel mt-8 p-10 text-center">
         <h2 class="text-2xl font-semibold text-white">No products published here yet</h2>
         <p class="mt-3 text-slate-300">
-            Attach products to this collection in Lunar and they will populate automatically.
+            Attach products to this Lunar collection and this landing page will populate automatically.
         </p>
     </section>
 

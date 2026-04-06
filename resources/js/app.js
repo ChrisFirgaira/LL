@@ -4,7 +4,9 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 
-const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'Lunar Store';
+const appName = import.meta.env.SSR
+    ? 'Lunar Store'
+    : document.title || 'Lunar Store';
 
 createInertiaApp({
     title: (title) => (title ? `${title} | ${appName}` : appName),

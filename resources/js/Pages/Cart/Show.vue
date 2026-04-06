@@ -37,7 +37,7 @@ const clearCart = () => {
             <div>
                 <h1 class="text-4xl font-semibold tracking-tight text-white">Your shopping cart</h1>
                 <p class="mt-3 text-base leading-7 text-slate-300">
-                    Review quantities, remove items, and hand off to checkout when you are ready.
+                    Review quantities, confirm your mix of products, and move straight into checkout when you are ready.
                 </p>
             </div>
             <div class="flex flex-wrap gap-3">
@@ -103,7 +103,7 @@ const clearCart = () => {
         <aside class="glass-panel h-fit space-y-5 p-6">
             <div class="space-y-1">
                 <h2 class="text-2xl font-semibold text-white">Order summary</h2>
-                <p class="text-sm text-slate-400">Lunar-calculated totals are surfaced here automatically.</p>
+                <p class="text-sm text-slate-400">Totals are calculated from the active Lunar cart session.</p>
                 <p class="text-sm text-slate-500">{{ cart.itemCount }} item<span v-if="cart.itemCount !== 1">s</span> in cart</p>
             </div>
 
@@ -140,7 +140,7 @@ const clearCart = () => {
     <section v-else class="glass-panel p-10 text-center">
         <h2 class="text-2xl font-semibold text-white">Your cart is empty</h2>
         <p class="mt-3 text-slate-300">
-            This starter is wired to Lunar cart sessions, so products you add will appear here automatically.
+            As shoppers add products from the catalog, their Lunar cart session will populate here automatically.
         </p>
         <Link href="/shop" class="primary-button mt-6">Browse products</Link>
     </section>

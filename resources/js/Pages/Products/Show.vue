@@ -79,7 +79,7 @@ const submit = () => {
                         {{ product.name }}
                     </h1>
                     <p class="mt-4 max-w-2xl text-base leading-8 text-slate-300">
-                        {{ product.longDescription || product.description || 'Use Lunar product attributes and media to turn this into a rich product storytelling surface.' }}
+                        {{ product.longDescription || product.description || 'Use Lunar product content to turn this page into a richer buying story with media, specs, and collection context.' }}
                     </p>
                 </div>
 
@@ -132,7 +132,7 @@ const submit = () => {
                 </div>
 
                 <p class="text-sm text-slate-400">
-                    This starter uses Lunar cart actions directly, so stock and quantity validation come from Lunar rather than custom storefront logic.
+                    Variant availability, pricing, and cart validation are coming directly from Lunar, keeping the product page connected to live catalog rules.
                 </p>
             </div>
         </div>
@@ -141,7 +141,7 @@ const submit = () => {
     <section v-if="relatedProducts.length" class="space-y-6 border-t border-white/10 pt-10">
         <div>
             <p class="pill">More to explore</p>
-            <h2 class="mt-3 text-3xl font-semibold text-white">Related catalogue picks</h2>
+            <h2 class="mt-3 text-3xl font-semibold text-white">More products shoppers may want next</h2>
         </div>
 
         <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">

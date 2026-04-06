@@ -110,7 +110,9 @@ class StorefrontData
     public static function productCard(Product $product): array
     {
         $variant = $product->variants->first();
-        $price = $variant?->prices->sortBy('min_quantity')->first()?->price;
+        $priceModel = $variant?->prices->sortBy('min_quantity')->first();
+        $price = $priceModel?->price;
+        $comparePrice = $priceModel?->compare_price;
 
         return [
             'id' => $product->id,
@@ -120,6 +122,9 @@ class StorefrontData
             'image' => static::productImage($product),
             'price' => $price?->formatted,
             'priceValue' => $price?->value,
+            'comparePrice' => $comparePrice?->formatted,
+            'comparePriceValue' => $comparePrice?->value,
+            'isOnSale' => $comparePrice && $price ? $comparePrice->value > $price->value : false,
             'variantCount' => $product->variants->count(),
             'collectionNames' => $product->collections
                 ->map(fn (Collection $collection) => static::translatedAttribute($collection, 'name'))
