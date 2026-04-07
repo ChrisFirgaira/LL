@@ -17,6 +17,7 @@ const brandName = 'POP ATTACK';
 const headerContactEmail = computed(() => contact.value.onlineEmail || contact.value.email || null);
 const isLocationsPage = computed(() => (page.url ?? '').startsWith('/locations'));
 const isShopPage = computed(() => (page.url ?? '').startsWith('/shop'));
+const initialDarkMode = typeof window !== 'undefined' && window.localStorage.getItem('storefront-theme') === 'dark';
 const mobileMenuOpen = ref(false);
 const globalSearch = ref('');
 const subscriptionEmail = ref('');
@@ -24,7 +25,7 @@ const searchSuggestions = ref([]);
 const searchLoading = ref(false);
 const showSearchDropdown = ref(false);
 const activeSuggestionIndex = ref(-1);
-const darkMode = ref(false);
+const darkMode = ref(initialDarkMode);
 const miniCartOpen = ref(false);
 const miniCartBusy = ref(false);
 const cartButtonAnchor = ref(null);
@@ -50,9 +51,11 @@ const applyThemeMode = (isDark) => {
     document.body.dataset.theme = isDark ? 'dark' : 'light';
 };
 
+if (typeof document !== 'undefined') {
+    applyThemeMode(initialDarkMode);
+}
+
 onMounted(() => {
-    const savedMode = window.localStorage.getItem('storefront-theme');
-    darkMode.value = savedMode === 'dark';
     applyThemeMode(darkMode.value);
 });
 
@@ -584,7 +587,7 @@ onMounted(() => {
                     <Link :href="navigation.cartUrl ?? '/cart'" class="secondary-button !rounded-xl !px-3 !py-2 text-center" @click="closeMiniCart">
                         View cart
                     </Link>
-                    <Link :href="navigation.checkoutUrl ?? '/checkout'" class="primary-button !rounded-xl !px-3 !py-2 text-center">
+                    <Link :href="navigation.checkoutUrl ?? '/checkout'" class="primary-button !rounded-xl !px-3 !py-2 text-center" @click="closeMiniCart">
                         Checkout
                     </Link>
                 </div>
