@@ -587,7 +587,7 @@ onBeforeUnmount(() => {
 <template>
     <Head title="Locations" />
 
-    <section ref="sectionRef" class="-mt-[3px] w-full bg-slate-100">
+    <section ref="sectionRef" class="w-full bg-slate-100">
         <div class="locator-shell" :style="{ height: mapViewportHeight, minHeight: mapViewportHeight }">
             <aside class="locator-store-panel" :class="{ 'is-open': panelOpen }">
                 <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">

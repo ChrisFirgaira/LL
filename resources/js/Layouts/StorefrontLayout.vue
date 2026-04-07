@@ -319,7 +319,7 @@ onMounted(() => {
             </div>
         </div>
 
-        <header :class="isLocationsPage ? 'sticky top-0 z-30 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]' : 'sticky top-0 z-30 border-b border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]'">
+        <header :class="isLocationsPage ? 'sticky top-0 z-30 border-b border-transparent bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]' : 'sticky top-0 z-30 border-b border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]'">
             <div class="header-shell py-4">
                 <div class="grid gap-4 lg:grid-cols-[auto_1fr_auto] lg:items-center">
                     <div class="flex items-center justify-between gap-4">
@@ -411,7 +411,7 @@ onMounted(() => {
                 </div>
             </div>
 
-            <nav :class="isLocationsPage ? 'bg-brand-500' : 'border-t border-slate-200 bg-white'">
+            <nav :class="isLocationsPage ? 'border-t border-brand-500 bg-brand-500' : 'border-t border-slate-200 bg-white'">
                 <div class="hidden h-12 items-center justify-between bg-brand-500 lg:flex">
                     <div class="header-shell flex h-full items-center gap-6">
                         <div class="flex items-center gap-6 text-sm font-semibold uppercase tracking-[0.14em] text-rose-50">

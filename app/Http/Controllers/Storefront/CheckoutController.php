@@ -3,13 +3,22 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Support\Storefront\StorefrontData;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Lunar\Facades\CartSession;
+use Lunar\Facades\ShippingManifest;
+use Lunar\Exceptions\Carts\CartException;
+use Lunar\Exceptions\FingerprintMismatchException;
+use Lunar\Models\Customer;
 use Lunar\Models\Order;
 
 class CheckoutController extends Controller
@@ -44,7 +53,7 @@ class CheckoutController extends Controller
             'billing.city' => ['required', 'string', 'max:150'],
             'billing.state' => ['nullable', 'string', 'max:150'],
             'billing.postcode' => ['required', 'string', 'max:30'],
-            'billing.country_id' => ['required', 'integer'],
+            'billing.country_id' => ['required', 'integer', 'exists:lunar_countries,id'],
             'billing.contact_email' => ['required', 'email', 'max:255'],
             'billing.contact_phone' => ['nullable', 'string', 'max:50'],
             'shipping' => ['nullable', 'array'],
@@ -56,7 +65,7 @@ class CheckoutController extends Controller
             'shipping.city' => ['nullable', 'string', 'max:150'],
             'shipping.state' => ['nullable', 'string', 'max:150'],
             'shipping.postcode' => ['nullable', 'string', 'max:30'],
-            'shipping.country_id' => ['nullable', 'integer'],
+            'shipping.country_id' => ['nullable', 'integer', 'exists:lunar_countries,id'],
             'shipping.contact_email' => ['nullable', 'email', 'max:255'],
             'shipping.contact_phone' => ['nullable', 'string', 'max:50'],
             'shipping.delivery_instructions' => ['nullable', 'string', 'max:500'],
@@ -97,8 +106,7 @@ class CheckoutController extends Controller
             'shipping_option' => ['required', 'string'],
         ]);
 
-        $option = CartSession::getShippingOptions()
-            ->firstWhere('identifier', $data['shipping_option']);
+        $option = ShippingManifest::getOption($cart, $data['shipping_option']);
 
         if (! $option) {
             throw ValidationException::withMessages([
@@ -116,22 +124,170 @@ class CheckoutController extends Controller
         $cart = CartSession::current();
         abort_if(! $cart || ! $cart->lines->count(), 404);
 
-        $request->validate([
+        $shippingRequiredIfSeparate = $cart->isShippable()
+            ? ['required_if:same_as_billing,false']
+            : [];
+
+        $validator = Validator::make($request->all(), [
             'accept_terms' => ['accepted'],
+            'fingerprint' => ['nullable', 'string'],
+            'create_account' => ['nullable', 'boolean'],
+            'create_account_password' => ($request->boolean('create_account') && ! $request->user())
+                ? ['required', 'string', 'confirmed', Password::defaults()]
+                : ['nullable', 'string'],
+            'same_as_billing' => ['required', 'boolean'],
+            'billing' => ['required', 'array'],
+            'billing.first_name' => ['required', 'string', 'max:100'],
+            'billing.last_name' => ['nullable', 'string', 'max:100'],
+            'billing.company_name' => ['nullable', 'string', 'max:150'],
+            'billing.line_one' => ['required', 'string', 'max:255'],
+            'billing.line_two' => ['nullable', 'string', 'max:255'],
+            'billing.city' => ['required', 'string', 'max:150'],
+            'billing.state' => ['nullable', 'string', 'max:150'],
+            'billing.postcode' => ['required', 'string', 'max:30'],
+            'billing.country_id' => ['required', 'integer', 'exists:lunar_countries,id'],
+            'billing.contact_email' => ['required', 'email', 'max:255'],
+            'billing.contact_phone' => ['nullable', 'string', 'max:50'],
+            'shipping' => ['nullable', 'array'],
+            'shipping.first_name' => ['nullable', ...$shippingRequiredIfSeparate, 'string', 'max:100'],
+            'shipping.last_name' => ['nullable', 'string', 'max:100'],
+            'shipping.company_name' => ['nullable', 'string', 'max:150'],
+            'shipping.line_one' => ['nullable', ...$shippingRequiredIfSeparate, 'string', 'max:255'],
+            'shipping.line_two' => ['nullable', 'string', 'max:255'],
+            'shipping.city' => ['nullable', ...$shippingRequiredIfSeparate, 'string', 'max:150'],
+            'shipping.state' => ['nullable', 'string', 'max:150'],
+            'shipping.postcode' => ['nullable', ...$shippingRequiredIfSeparate, 'string', 'max:30'],
+            'shipping.country_id' => ['nullable', ...$shippingRequiredIfSeparate, 'integer', 'exists:lunar_countries,id'],
+            'shipping.contact_email' => ['nullable', 'email', 'max:255'],
+            'shipping.contact_phone' => ['nullable', 'string', 'max:50'],
+            'shipping.delivery_instructions' => ['nullable', 'string', 'max:500'],
+            'shipping_option' => ['nullable', 'string'],
         ]);
+
+        if ($validator->fails()) {
+            Log::warning('Checkout validation failed before order submission.', [
+                'user_id' => $request->user()?->id,
+                'cart_id' => $cart->id,
+                'errors' => $validator->errors()->toArray(),
+            ]);
+
+            throw ValidationException::withMessages($validator->errors()->toArray());
+        }
+
+        $data = $validator->validated();
+
+        if (($data['create_account'] ?? false) && ! $request->user()) {
+            $emailExists = User::query()
+                ->where('email', strtolower((string) $data['billing']['contact_email']))
+                ->exists();
+
+            if ($emailExists) {
+                Log::warning('Checkout account creation blocked: email already exists.', [
+                    'cart_id' => $cart->id,
+                    'email' => strtolower((string) $data['billing']['contact_email']),
+                ]);
+
+                throw ValidationException::withMessages([
+                    'billing.contact_email' => 'An account already exists for this email. Please log in instead.',
+                ]);
+            }
+        }
+
+        if (! empty($data['fingerprint'])) {
+            try {
+                $cart->checkFingerprint($data['fingerprint']);
+            } catch (FingerprintMismatchException $exception) {
+                Log::warning('Checkout fingerprint mismatch detected.', [
+                    'cart_id' => $cart->id,
+                    'user_id' => $request->user()?->id,
+                ]);
+
+                return back()->withErrors([
+                    'cart' => 'Your cart has changed. Please review your order again.',
+                ]);
+            }
+        }
+
+        $billing = $this->normalizeAddress($data['billing']);
+        $shipping = $data['same_as_billing']
+            ? $billing
+            : $this->normalizeAddress($data['shipping'] ?? []);
+
+        $cart->setBillingAddress($billing);
+
+        if ($cart->isShippable()) {
+            $cart->setShippingAddress($shipping);
+
+            $option = null;
+            if (! empty($data['shipping_option'])) {
+                $option = ShippingManifest::getOption($cart, (string) $data['shipping_option']);
+            }
+            $option ??= ShippingManifest::getOptions($cart)->first();
+
+            if (! $option) {
+                Log::warning('Checkout failed: no shipping option available.', [
+                    'cart_id' => $cart->id,
+                ]);
+
+                throw ValidationException::withMessages([
+                    'shipping_option' => 'No valid shipping method is currently available for this order.',
+                ]);
+            }
+
+            $cart->setShippingOption($option);
+        }
 
         try {
             $order = $cart->createOrder();
-        } catch (ValidationException $exception) {
+        } catch (CartException $exception) {
+            Log::warning('Checkout failed during cart->createOrder().', [
+                'cart_id' => $cart->id,
+                'errors' => $exception->errors()->toArray(),
+            ]);
+
+            $errors = $exception->errors()->toArray();
+            if (! isset($errors['cart'])) {
+                $errors['cart'] = $exception->getMessage();
+            }
+
             return back()
-                ->withErrors($exception->errors())
+                ->withErrors($errors)
                 ->with('error', 'Checkout is incomplete. Please review your details and try again.');
         }
 
+        // Keep current storefront behavior: finalize as offline order.
         $order->forceFill([
             'placed_at' => now(),
             'status' => 'payment-offline',
         ])->save();
+
+        $orderUser = $request->user();
+
+        try {
+            if (($data['create_account'] ?? false) && ! $orderUser) {
+                $orderUser = User::query()->create([
+                    'name' => trim(($data['billing']['first_name'] ?? '').' '.($data['billing']['last_name'] ?? '')) ?: $data['billing']['contact_email'],
+                    'email' => strtolower((string) $data['billing']['contact_email']),
+                    'password' => $data['create_account_password'],
+                ]);
+
+                Auth::login($orderUser);
+                $request->session()->regenerate();
+            }
+
+            if ($orderUser) {
+                $customer = $orderUser->latestCustomer() ?: $this->createCustomerFromBilling($orderUser, $data['billing']);
+
+                $order->user()->associate($orderUser);
+                $order->customer()->associate($customer);
+                $order->save();
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('Checkout post-order account linking failed.', [
+                'order_id' => $order->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         CartSession::forget();
         $request->session()->put('checkout.last_order_id', $order->id);
@@ -171,5 +327,18 @@ class CheckoutController extends Controller
             'contact_phone' => $address['contact_phone'] ?? null,
             'delivery_instructions' => $address['delivery_instructions'] ?? null,
         ];
+    }
+
+    protected function createCustomerFromBilling(User $user, array $billing): Customer
+    {
+        $customer = Customer::query()->create([
+            'first_name' => $billing['first_name'] ?? 'Customer',
+            'last_name' => $billing['last_name'] ?? 'Account',
+            'company_name' => $billing['company_name'] ?? null,
+        ]);
+
+        $user->customers()->attach($customer->id);
+
+        return $customer;
     }
 }

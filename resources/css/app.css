@@ -29,6 +29,7 @@
 @layer base {
     html {
         scroll-behavior: smooth;
+        scrollbar-gutter: stable;
     }
 
     body {
@@ -156,5 +157,149 @@
         border-color: #475569;
         background: #0f172a;
         color: #e2e8f0;
+    }
+
+    .catalog-price-context .price-tag-label {
+        color: #334155 !important;
+    }
+
+    body[data-theme='dark'] .catalog-price-context .price-tag-label {
+        color: #e2e8f0 !important;
+    }
+
+    body[data-theme='dark'] .catalog-price-context .price-tag-value {
+        color: #f8fafc !important;
+    }
+
+    body[data-theme='dark'] .catalog-price-context .catalog-compare-price {
+        color: #94a3b8 !important;
+    }
+
+    body[data-theme='dark'] .catalog-product-card {
+        border-color: #334155 !important;
+        background: #0f172a !important;
+    }
+
+    body[data-theme='dark'] .catalog-product-card .catalog-product-media {
+        background: #111827 !important;
+    }
+
+    body[data-theme='dark'] .catalog-product-card .catalog-product-card-body {
+        background: #1e293b !important;
+    }
+
+    body[data-theme='dark'] .catalog-product-card .catalog-product-title {
+        color: #f8fafc !important;
+    }
+
+    body[data-theme='dark'] .checkout-shipping-option--selected {
+        background-color: rgba(6, 95, 70, 0.35) !important;
+        border-color: rgba(52, 211, 153, 0.7) !important;
+    }
+
+    body[data-theme='dark'] .checkout-shipping-option--selected p {
+        color: #f8fafc !important;
+    }
+
+    @media (min-width: 1000px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 1440px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 1600px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 1760px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 1920px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 2080px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(9, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 2240px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 2400px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(11, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 2560px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 2800px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(13, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 3000px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(14, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 3200px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(15, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 3400px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(16, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 3600px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(17, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 3800px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(18, minmax(0, 1fr)) !important;
+        }
+    }
+
+    @media (min-width: 4000px) {
+        .ultra-catalog-grid.ultra-catalog-grid {
+            grid-template-columns: repeat(19, minmax(0, 1fr)) !important;
+        }
     }
 }

@@ -29,9 +29,9 @@ const quickAddToCart = () => {
 </script>
 
 <template>
-    <article class="glass-panel group transition duration-200 hover:border-brand-400/40" :class="catalogMode ? 'overflow-hidden' : ''">
+    <article class="glass-panel group transition duration-200 hover:border-brand-400/40" :class="catalogMode ? 'overflow-hidden catalog-product-card' : ''">
         <Link :href="product.url" class="block">
-            <div class="relative" :class="catalogMode ? 'aspect-[4/4.3] bg-white p-4' : 'aspect-[4/5] bg-slate-100'">
+            <div class="relative" :class="catalogMode ? 'catalog-product-media aspect-[4/4.3] bg-white p-4' : 'aspect-[4/5] bg-slate-100'">
                 <img
                     v-if="product.image"
                     :src="product.image"
@@ -62,10 +62,10 @@ const quickAddToCart = () => {
             </div>
         </Link>
 
-        <div class="space-y-4 p-5" :class="catalogMode ? 'bg-sky-50/60' : ''">
+        <div class="space-y-4 p-5" :class="catalogMode ? 'catalog-product-card-body bg-sky-50/60' : ''">
             <div class="space-y-2">
                 <p v-if="!catalogMode" class="divider-label">Featured product</p>
-                <Link :href="product.url" class="font-semibold tracking-tight text-slate-900 transition group-hover:text-brand-600" :class="catalogMode ? 'line-clamp-2 text-lg' : 'text-xl'">
+                <Link :href="product.url" class="catalog-product-title font-semibold tracking-tight text-slate-900 transition group-hover:text-brand-600" :class="catalogMode ? 'line-clamp-2 text-base leading-6' : 'text-xl'">
                     {{ product.name }}
                 </Link>
                 <p v-if="!catalogMode && product.description" class="line-clamp-2 text-sm leading-6 text-slate-600">
@@ -74,9 +74,9 @@ const quickAddToCart = () => {
             </div>
 
             <div class="border-t border-slate-200 pt-4">
-                <div class="mb-3">
-                    <PriceTag :price="product.price" />
-                    <p v-if="product.comparePrice" class="mt-1 text-sm text-slate-500 line-through">
+                <div class="mb-3" :class="catalogMode ? 'catalog-price-context' : ''">
+                    <PriceTag :price="product.price" :compact="catalogMode" />
+                    <p v-if="product.comparePrice" class="catalog-compare-price mt-1 text-xs text-slate-500 line-through">
                         {{ product.comparePrice }}
                     </p>
                     <p v-if="!catalogMode && (product.variantCount ?? 0) > 1" class="mt-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-500">

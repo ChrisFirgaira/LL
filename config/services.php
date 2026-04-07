@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'storefront_api' => [
+        'key' => env('STOREFRONT_API_KEY'),
+    ],
+
 ];

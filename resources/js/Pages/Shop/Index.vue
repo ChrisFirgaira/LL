@@ -157,7 +157,7 @@ const resetFilters = () => {
                 </Link>
             </div>
 
-            <section v-if="products.length" class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <section v-if="products.length" class="ultra-catalog-grid grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <ProductCard
                     v-for="product in products"
                     :key="product.id"

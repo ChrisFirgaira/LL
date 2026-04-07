@@ -5,6 +5,7 @@ namespace App\Support\Storefront;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Lunar\Facades\CartSession;
+use Lunar\Facades\ShippingManifest;
 use Lunar\Models\Cart;
 use Lunar\Models\Channel;
 use Lunar\Models\Collection;
@@ -256,6 +257,7 @@ class StorefrontData
                 : true,
             'shippingOptions' => $cart ? static::shippingOptions($cart, $selectedShippingOption) : [],
             'selectedShippingOption' => $selectedShippingOption,
+            'fingerprint' => $cart?->fingerprint(),
             'canPlaceOrder' => (bool) ($cart?->canCreateOrder()),
         ];
     }
@@ -381,11 +383,11 @@ class StorefrontData
 
     protected static function shippingOptions(Cart $cart, ?string $selected = null): array
     {
-        if (! $cart->isShippable() || ! $cart->shippingAddress) {
+        if (! $cart->isShippable()) {
             return [];
         }
 
-        return CartSession::getShippingOptions()
+        return ShippingManifest::getOptions($cart)
             ->map(fn ($option) => [
                 'identifier' => $option->identifier,
                 'name' => $option->name,
