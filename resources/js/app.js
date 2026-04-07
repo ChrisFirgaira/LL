@@ -2,11 +2,11 @@ import './bootstrap';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { createApp, h } from 'vue';
+import { createApp, createSSRApp, h } from 'vue';
 
 const appName = import.meta.env.SSR
-    ? 'Lunar Store'
-    : document.title || 'Lunar Store';
+    ? 'Pop Attack'
+    : document.title || 'Pop Attack';
 
 createInertiaApp({
     title: (title) => (title ? `${title} | ${appName}` : appName),
@@ -16,8 +16,13 @@ createInertiaApp({
         showSpinner: false,
     },
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
-            .use(plugin)
-            .mount(el);
+        const vueAppFactory = import.meta.env.SSR ? createSSRApp : createApp;
+        const app = vueAppFactory({ render: () => h(App, props) }).use(plugin);
+
+        if (import.meta.env.SSR) {
+            return app;
+        }
+
+        app.mount(el);
     },
 });

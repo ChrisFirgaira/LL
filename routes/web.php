@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Storefront\AccountController;
+use App\Http\Controllers\Storefront\AuthController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\CollectionController;
@@ -7,6 +9,7 @@ use App\Http\Controllers\Storefront\ContactController;
 use App\Http\Controllers\Storefront\HomeController;
 use App\Http\Controllers\Storefront\LocationController;
 use App\Http\Controllers\Storefront\ProductController;
+use App\Http\Controllers\Storefront\SearchController;
 use App\Http\Controllers\Storefront\ShopController;
 use App\Http\Controllers\Storefront\StockLocatorController;
 use Illuminate\Support\Facades\Route;
@@ -24,8 +27,21 @@ Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact.index');
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 Route::get('/locations', [LocationController::class, 'index'])->name('locations.index');
+Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
 Route::post('/checkout/addresses', [CheckoutController::class, 'addresses'])->name('checkout.addresses');
 Route::post('/checkout/shipping', [CheckoutController::class, 'shipping'])->name('checkout.shipping');
 Route::post('/checkout/place', [CheckoutController::class, 'place'])->name('checkout.place');
 Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->name('login.store');
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.store');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/account', [AccountController::class, 'index'])->name('account.index');
+});

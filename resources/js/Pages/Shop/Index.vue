@@ -1,6 +1,7 @@
 <script setup>
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import Breadcrumbs from '../../Components/Breadcrumbs.vue';
 import ProductCard from '../../Components/ProductCard.vue';
 import StorefrontLayout from '../../Layouts/StorefrontLayout.vue';
 
@@ -34,6 +35,27 @@ const filterForm = reactive({
     sort: props.filters.sort ?? 'latest',
 });
 
+const selectedCollectionName = computed(() => {
+    if (!filterForm.collection) {
+        return null;
+    }
+
+    return props.collections.find((collection) => collection.url.split('/').pop() === filterForm.collection)?.name ?? null;
+});
+
+const breadcrumbItems = computed(() => {
+    const items = [
+        { label: 'Home', href: '/' },
+        { label: 'Catalog', href: '/shop' },
+    ];
+
+    if (selectedCollectionName.value) {
+        items.push({ label: selectedCollectionName.value });
+    }
+
+    return items;
+});
+
 const applyFilters = () => {
     router.get('/shop', {
         search: filterForm.search || undefined,
@@ -59,37 +81,28 @@ const resetFilters = () => {
 <template>
     <Head title="Shop" />
 
-    <section class="space-y-6 pb-8 pt-4">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <section class="space-y-3 pb-3 pt-2">
+        <Breadcrumbs :items="breadcrumbItems" />
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <span class="pill">Catalog</span>
-                <h1 class="mt-4 text-4xl font-semibold tracking-tight text-white">Browse the full collection</h1>
-                <p class="mt-3 max-w-2xl text-base leading-7 text-slate-300">
-                    A cleaner catalog view with collection shortcuts, stronger product cards, and a clearer path into product detail and checkout.
-                </p>
+                <h1 class="text-4xl font-semibold tracking-tight text-slate-950">Shop all products</h1>
             </div>
-
-            <div class="flex flex-wrap gap-3">
-                <Link
-                    v-for="collection in collections"
-                    :key="collection.id"
-                    :href="collection.url"
-                    class="secondary-button"
-                >
-                    {{ collection.name }}
-                </Link>
-            </div>
+            <p class="text-sm font-medium text-slate-500">
+                Showing {{ pagination.from ?? 0 }}-{{ pagination.to ?? 0 }} of {{ pagination.total }}
+            </p>
         </div>
     </section>
 
-    <section class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_20px_80px_rgba(15,23,42,0.12)]">
-        <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr_auto_auto]">
+    <section class="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <aside class="surface-panel h-fit space-y-5 p-5">
+            <h2 class="text-lg font-semibold text-slate-900">Filters</h2>
+
             <label class="space-y-2">
                 <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Search</span>
                 <input
                     v-model="filterForm.search"
                     type="text"
-                    placeholder="Product, slug, keyword..."
+                    placeholder="Name, keyword..."
                     class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-brand-500"
                     @keyup.enter="applyFilters"
                 >
@@ -121,43 +134,53 @@ const resetFilters = () => {
                 </select>
             </label>
 
-            <label class="flex items-end">
-                <span class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
-                    <input v-model="filterForm.sale" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500">
-                    On sale only
-                </span>
+            <label class="mt-3 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
+                <input v-model="filterForm.sale" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500">
+                On sale only
             </label>
 
-            <div class="flex items-end gap-3">
-                <button type="button" class="primary-button" @click="applyFilters">Apply</button>
-                <button type="button" class="secondary-button !border-slate-300 !bg-white !text-slate-800" @click="resetFilters">Reset</button>
+            <div class="flex gap-2">
+                <button type="button" class="primary-button w-full !rounded-2xl" @click="applyFilters">Apply</button>
+                <button type="button" class="secondary-button w-full !rounded-2xl" @click="resetFilters">Reset</button>
             </div>
+        </aside>
+
+        <div class="space-y-6">
+            <div class="flex flex-wrap gap-2">
+                <Link
+                    v-for="collection in collections"
+                    :key="collection.id"
+                    :href="collection.url"
+                    class="pill"
+                >
+                    {{ collection.name }}
+                </Link>
+            </div>
+
+            <section v-if="products.length" class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                <ProductCard
+                    v-for="product in products"
+                    :key="product.id"
+                    :product="product"
+                    :catalog-mode="true"
+                />
+            </section>
         </div>
     </section>
 
-    <section v-if="products.length" class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <ProductCard
-            v-for="product in products"
-            :key="product.id"
-            :product="product"
-        />
+    <section v-if="!products.length" class="glass-panel p-10 text-center">
+        <h2 class="text-2xl font-semibold text-slate-950">No products found</h2>
+        <p class="mt-3 text-slate-600">Try adjusting your filters or search terms.</p>
     </section>
 
-    <section v-else class="glass-panel p-10 text-center">
-        <h2 class="text-2xl font-semibold text-white">Your catalog is ready for inventory</h2>
-        <p class="mt-3 text-slate-300">
-            Publish products and collections in Lunar and this browse page will populate automatically.
-        </p>
-    </section>
-
-    <section class="mt-10 flex items-center justify-between gap-4 border-t border-white/10 pt-6 text-sm text-slate-400">
+    <section class="mt-10 flex items-center justify-between gap-4 border-t border-slate-200 pt-6 text-sm text-slate-500">
         <p>
             Showing
-            <span class="font-medium text-slate-200">{{ pagination.from ?? 0 }}</span>
+            <span class="font-medium text-slate-900">{{ pagination.from ?? 0 }}</span>
             to
-            <span class="font-medium text-slate-200">{{ pagination.to ?? 0 }}</span>
+            <span class="font-medium text-slate-900">{{ pagination.to ?? 0 }}</span>
             of
-            <span class="font-medium text-slate-200">{{ pagination.total }}</span>
+            <span class="font-medium text-slate-900">{{ pagination.total }}</span>
             products
         </p>
 

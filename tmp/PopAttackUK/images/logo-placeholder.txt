@@ -1,0 +1,20 @@
+LOGO PLACEHOLDER
+
+This directory is for storing website images.
+
+Current logo reference: https://i.imgur.com/YourLogoHere.png
+
+To add your actual logo:
+1. Replace the imgur URL in all HTML files with your actual logo file
+2. Place your logo file in this images/ directory
+3. Update the src attribute in all HTML files to point to your local logo file
+
+Example:
+- Current: <img src="https://i.imgur.com/YourLogoHere.png" alt="Pop Attack Logo" />
+- Updated: <img src="images/logo.png" alt="Pop Attack Logo" />
+
+Recommended logo specifications:
+- Format: PNG or SVG (preferred for scalability)
+- Size: At least 200x80 pixels
+- Background: Transparent or white
+- File size: Under 100KB for fast loading 

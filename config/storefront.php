@@ -6,7 +6,9 @@ return [
     'contact' => [
         'to_address' => env('CONTACT_FORM_TO_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
         'to_name' => env('CONTACT_FORM_TO_NAME', env('APP_NAME', 'Lunar Store')),
-        'display_email' => env('STOREFRONT_CONTACT_EMAIL', env('CONTACT_FORM_TO_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com'))),
+        'display_email' => env('STOREFRONT_CONTACT_EMAIL', 'online@popattack.com.au'),
+        'online_email' => env('STOREFRONT_ONLINE_EMAIL', 'online@popattack.com.au'),
+        'partnerships_email' => env('STOREFRONT_PARTNERSHIPS_EMAIL', 'partnerships@popattack.com.au'),
         'display_phone' => env('STOREFRONT_CONTACT_PHONE'),
     ],
 

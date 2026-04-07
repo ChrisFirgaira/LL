@@ -48,7 +48,7 @@ class ShopController extends Controller
         };
 
         $products = $productQuery
-            ->paginate(12)
+            ->paginate(30)
             ->withQueryString();
 
         $collections = StorefrontData::collectionQuery()

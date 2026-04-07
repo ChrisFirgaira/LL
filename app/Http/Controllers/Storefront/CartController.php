@@ -26,6 +26,8 @@ class CartController extends Controller
         $data = $request->validate([
             'variant_id' => ['required', 'integer'],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'redirect_back' => ['nullable', 'boolean'],
+            'silent' => ['nullable', 'boolean'],
         ]);
 
         $variant = ProductVariant::query()
@@ -40,6 +42,14 @@ class CartController extends Controller
             return back()
                 ->withErrors($exception->errors())
                 ->with('error', 'This item could not be added to the cart.');
+        }
+
+        if ($data['redirect_back'] ?? false) {
+            if ($data['silent'] ?? false) {
+                return back();
+            }
+
+            return back()->with('success', 'Item added to cart.');
         }
 
         return to_route('cart.show')->with('success', 'Item added to cart.');

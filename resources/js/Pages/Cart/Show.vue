@@ -31,12 +31,12 @@ const clearCart = () => {
 <template>
     <Head title="Cart" />
 
-    <section class="flex flex-col gap-4 pb-6 pt-4">
+    <section class="mx-auto flex w-full max-w-[1240px] flex-col gap-4 pb-6 pt-4">
         <span class="pill">Cart</span>
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <h1 class="text-4xl font-semibold tracking-tight text-white">Your shopping cart</h1>
-                <p class="mt-3 text-base leading-7 text-slate-300">
+                <h1 class="text-4xl font-semibold tracking-tight text-slate-950">Your shopping cart</h1>
+                <p class="mt-3 text-base leading-7 text-slate-600">
                     Review quantities, confirm your mix of products, and move straight into checkout when you are ready.
                 </p>
             </div>
@@ -47,14 +47,14 @@ const clearCart = () => {
         </div>
     </section>
 
-    <section v-if="cart.lines.length" class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+    <section v-if="cart.lines.length" class="mx-auto grid w-full max-w-[1240px] gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div class="space-y-4">
             <article
                 v-for="line in cart.lines"
                 :key="line.id"
                 class="glass-panel flex flex-col gap-5 p-5 md:flex-row"
             >
-                <div class="h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
+                <div class="h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
                     <img
                         v-if="line.image"
                         :src="line.image"
@@ -68,30 +68,30 @@ const clearCart = () => {
 
                 <div class="flex flex-1 flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div class="space-y-2">
-                        <Link v-if="line.url" :href="line.url" class="text-xl font-semibold text-white">
+                        <Link v-if="line.url" :href="line.url" class="text-xl font-semibold text-slate-900">
                             {{ line.name }}
                         </Link>
-                        <p v-else class="text-xl font-semibold text-white">{{ line.name }}</p>
-                        <p class="text-sm text-slate-400">{{ line.option || 'Default option' }}</p>
+                        <p v-else class="text-xl font-semibold text-slate-900">{{ line.name }}</p>
+                        <p class="text-sm text-slate-500">{{ line.option || 'Default option' }}</p>
                         <p class="text-sm text-slate-500">SKU: {{ line.sku || 'Pending' }}</p>
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-[110px_auto] sm:items-end">
                         <label class="space-y-2">
-                            <span class="text-sm text-slate-400">Qty</span>
+                            <span class="text-sm text-slate-500">Qty</span>
                             <input
                                 :value="line.quantity"
                                 type="number"
                                 min="1"
                                 max="20"
-                                class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition focus:border-brand-400"
+                                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-brand-400"
                                 @change="updateQuantity(line.id, Number($event.target.value))"
                             >
                         </label>
 
                         <div class="flex items-center justify-between gap-3 sm:block">
-                            <p class="text-right text-lg font-semibold text-white">{{ line.total || line.unitPrice }}</p>
-                            <button type="button" class="mt-2 text-sm text-rose-300 transition hover:text-rose-200" @click="removeLine(line.id)">
+                            <p class="text-right text-lg font-semibold text-slate-900">{{ line.total || line.unitPrice }}</p>
+                            <button type="button" class="mt-2 text-sm text-rose-600 transition hover:text-rose-700" @click="removeLine(line.id)">
                                 Remove
                             </button>
                         </div>
@@ -102,15 +102,15 @@ const clearCart = () => {
 
         <aside class="glass-panel h-fit space-y-5 p-6">
             <div class="space-y-1">
-                <h2 class="text-2xl font-semibold text-white">Order summary</h2>
-                <p class="text-sm text-slate-400">Totals are calculated from the active Lunar cart session.</p>
+                <h2 class="text-2xl font-semibold text-slate-950">Order summary</h2>
+                <p class="text-sm text-slate-500">Totals update automatically with your cart changes.</p>
                 <p class="text-sm text-slate-500">{{ cart.itemCount }} item<span v-if="cart.itemCount !== 1">s</span> in cart</p>
             </div>
 
-            <div class="space-y-3 text-sm text-slate-300">
+            <div class="space-y-3 text-sm text-slate-600">
                 <div class="flex items-center justify-between">
-                    <span>Subtotal</span>
-                    <span>{{ cart.subTotal || '-' }}</span>
+                    <span>Subtotal (inc GST)</span>
+                    <span>{{ cart.total || cart.subTotal || '-' }}</span>
                 </div>
                 <div class="flex items-center justify-between">
                     <span>Discounts</span>
@@ -126,10 +126,10 @@ const clearCart = () => {
                 </div>
             </div>
 
-            <div class="border-t border-white/10 pt-4">
-                <div class="flex items-center justify-between text-lg font-semibold text-white">
+            <div class="border-t border-slate-200 pt-4">
+                <div class="flex items-center justify-between text-lg font-semibold text-slate-950">
                     <span>Total</span>
-                    <span>{{ cart.total || cart.subTotal || '-' }}</span>
+                    <span>{{ cart.total || '-' }}</span>
                 </div>
             </div>
 
@@ -137,11 +137,13 @@ const clearCart = () => {
         </aside>
     </section>
 
-    <section v-else class="glass-panel p-10 text-center">
-        <h2 class="text-2xl font-semibold text-white">Your cart is empty</h2>
-        <p class="mt-3 text-slate-300">
-            As shoppers add products from the catalog, their Lunar cart session will populate here automatically.
+    <section v-else class="mx-auto w-full max-w-[1240px]">
+        <div class="glass-panel p-10 text-center">
+        <h2 class="text-2xl font-semibold text-slate-950">Your cart is empty</h2>
+        <p class="mt-3 text-slate-600">
+            Add products from the catalog to start your order.
         </p>
         <Link href="/shop" class="primary-button mt-6">Browse products</Link>
+        </div>
     </section>
 </template>

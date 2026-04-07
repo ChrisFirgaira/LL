@@ -24,7 +24,7 @@ defineProps({
                 Thanks, your order has been received.
             </h1>
             <p class="max-w-2xl text-base leading-8 text-slate-300">
-                Your order has been created in Lunar and is now waiting for manual payment or follow-up. Use the reference below in any correspondence.
+                Your order is now being processed. Use the reference below in any correspondence.
             </p>
 
             <div class="glass-panel space-y-4 p-6">

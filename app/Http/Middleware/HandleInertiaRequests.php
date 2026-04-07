@@ -24,19 +24,32 @@ class HandleInertiaRequests extends Middleware
             'contact' => [
                 'email' => config('storefront.contact.display_email'),
                 'phone' => config('storefront.contact.display_phone'),
+                'onlineEmail' => config('storefront.contact.online_email'),
+                'partnershipsEmail' => config('storefront.contact.partnerships_email'),
             ],
             'navigation' => [
                 'homeUrl' => route('home'),
                 'shopUrl' => route('shop.index'),
                 'cartUrl' => route('cart.show'),
                 'checkoutUrl' => route('checkout.index'),
+                'accountUrl' => route('account.index'),
                 'contactUrl' => route('contact.index'),
                 'locationsUrl' => route('locations.index'),
                 'stockLocatorUrl' => route('stock-locator.index'),
                 'legacyStockLocatorUrl' => config('storefront.legacy_stock_locator_url'),
                 'collections' => StorefrontData::navigationCollections(),
             ],
+            'auth' => [
+                'user' => fn () => $request->user()
+                    ? [
+                        'id' => $request->user()->id,
+                        'name' => $request->user()->name,
+                        'email' => $request->user()->email,
+                    ]
+                    : null,
+            ],
             'cartSummary' => fn () => StorefrontData::cartSummary(),
+            'cartPreview' => fn () => StorefrontData::cart(),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

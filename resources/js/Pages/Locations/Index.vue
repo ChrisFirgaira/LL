@@ -26,20 +26,18 @@ const props = defineProps({
     },
 });
 
-const FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+const FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoidmVuZGFibGVzIiwiYSI6ImNtZHNycWcxazBoZm4ya29ubnR6ZGY4NWkifQ.db2JuRNjd7tcV1YLTjAmIg';
 
+const sectionRef = ref(null);
 const mapContainer = ref(null);
-const search = ref('');
-const selectedCategory = ref('all');
-const selectedRadius = ref('all');
-const selectedStatus = ref('all');
-const panelOpen = ref(true);
+const panelOpen = ref(false);
 const selectedStoreId = ref(props.locations[0]?.id ?? null);
 const userLocation = ref(null);
 const locatingUser = ref(false);
 const directions = ref(null);
 const directionsError = ref(null);
 const mapError = ref(null);
+const mapViewportHeight = ref('100vh');
 
 let mapboxgl = null;
 let map = null;
@@ -47,13 +45,12 @@ let markers = [];
 let activePopup = null;
 let currentRouteVisible = false;
 let userMarker = null;
+let mapResizeObserver = null;
+let viewportResizeHandler = null;
+let previousBodyOverflow = null;
+let previousBodyOverscroll = null;
 
 const allStores = computed(() => props.locations ?? []);
-
-const categories = computed(() => [
-    'all',
-    ...new Set(allStores.value.flatMap((store) => store.products ?? [])),
-]);
 
 const storesWithDistance = computed(() => {
     return allStores.value
@@ -85,30 +82,7 @@ const storesWithDistance = computed(() => {
         });
 });
 
-const filteredStores = computed(() => {
-    const term = search.value.trim().toLowerCase();
-    const radius = selectedRadius.value === 'all' ? null : Number(selectedRadius.value);
-
-    return storesWithDistance.value.filter((store) => {
-        const haystack = [
-            store.name,
-            store.location,
-            store.address,
-            ...(store.products ?? []),
-            ...(store.features ?? []),
-        ]
-            .filter(Boolean)
-            .join(' ')
-            .toLowerCase();
-
-        const matchesTerm = !term || haystack.includes(term);
-        const matchesCategory = selectedCategory.value === 'all' || (store.products ?? []).includes(selectedCategory.value);
-        const matchesStatus = selectedStatus.value === 'all' || (store.status ?? 'Open') === selectedStatus.value;
-        const matchesRadius = !radius || store.distanceFromUser == null || store.distanceFromUser <= radius;
-
-        return matchesTerm && matchesCategory && matchesStatus && matchesRadius;
-    });
-});
+const filteredStores = computed(() => storesWithDistance.value);
 
 const selectedStore = computed(() => {
     return storesWithDistance.value.find((store) => store.id === selectedStoreId.value) ?? filteredStores.value[0] ?? null;
@@ -119,28 +93,40 @@ const nearestStore = computed(() => {
 });
 
 const shopCount = computed(() => filteredStores.value.length);
+const panelToggleLabel = computed(() => {
+    const nearestDistance = nearestStore.value?.distanceFromUser;
+    const distanceLabel = nearestDistance != null ? ` - ${nearestDistance.toFixed(1)} km from me` : '';
+
+    return panelOpen.value ? `Hide Locations${distanceLabel}` : `Show Locations${distanceLabel}`;
+});
 
 const createMarkerElement = (selected = false) => {
     const markerElement = document.createElement('button');
     markerElement.type = 'button';
     markerElement.className = `locator-marker ${selected ? 'is-selected' : ''}`;
-    markerElement.innerHTML = '<span>PA</span>';
+    markerElement.innerHTML = `
+        <span class="locator-marker-pin">
+            <img src="/images/popattack-logo.png" alt="Pop Attack">
+        </span>
+    `;
 
     return markerElement;
 };
 
 const createPopupHtml = (store) => {
-    const products = (store.products ?? []).slice(0, 3);
+    const mapsUrl = userLocation.value
+        ? `https://www.google.com/maps/dir/${userLocation.value.latitude},${userLocation.value.longitude}/${store.latitude},${store.longitude}`
+        : `https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`;
 
     return `
         <div class="locator-popup-card">
-            <h3>${store.name}</h3>
+            <h3 class="locator-popup-title">${store.name}</h3>
             <p class="locator-popup-address">${store.address}</p>
-            ${store.distanceFromUser != null ? `<p class="locator-popup-distance">${store.distanceFromUser.toFixed(1)} km away</p>` : ''}
-            <div class="locator-popup-tags">
-                ${products.map((product) => `<span>${product}</span>`).join('')}
+            ${store.distanceFromUser != null ? `<p class="locator-popup-distance"><span class="locator-popup-distance-pin">📍</span> ${store.distanceFromUser.toFixed(1)}km from you</p>` : ''}
+            <div class="locator-popup-actions">
+                ${props.stockLocatorUrl ? `<a class="locator-popup-link is-primary" href="${props.stockLocatorUrl}">Check Stock</a>` : ''}
+                <a class="locator-popup-link is-secondary" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Get Directions</a>
             </div>
-            ${props.stockLocatorUrl ? `<a class="locator-popup-link" href="${props.stockLocatorUrl}">Check Stock Levels</a>` : ''}
         </div>
     `;
 };
@@ -168,6 +154,7 @@ const showStorePopup = (store) => {
     activePopup = new mapboxgl.Popup({
         offset: 20,
         closeButton: true,
+        maxWidth: '360px',
     })
         .setLngLat([store.longitude, store.latitude])
         .setHTML(createPopupHtml(store))
@@ -253,15 +240,6 @@ const togglePanel = () => {
     }
 };
 
-const searchStores = () => {
-    if (!filteredStores.value.length) {
-        return;
-    }
-
-    focusStore(filteredStores.value[0], true);
-    fitMapToStores(filteredStores.value);
-};
-
 const locateUser = () => {
     if (!navigator.geolocation || !mapboxgl || !map) {
         return;
@@ -301,6 +279,17 @@ const locateUser = () => {
     );
 };
 
+const updateMapViewportHeight = () => {
+    if (!sectionRef.value || typeof window === 'undefined') {
+        return;
+    }
+
+    const topOffset = Math.max(sectionRef.value.getBoundingClientRect().top, 0);
+    const availableHeight = Math.max(window.innerHeight - topOffset, 320);
+    mapViewportHeight.value = `${availableHeight}px`;
+    map?.resize();
+};
+
 const clearDirections = () => {
     directions.value = null;
     directionsError.value = null;
@@ -329,7 +318,16 @@ const requestDirections = async (store) => {
             ? [selectedStore.value.longitude, selectedStore.value.latitude]
             : null;
 
-    if (!origin || !map || !mapboxgl) {
+    if (!map || !mapboxgl) {
+        const destination = `${store.latitude},${store.longitude}`;
+        const googleMapsUrl = origin
+            ? `https://www.google.com/maps/dir/${origin[1]},${origin[0]}/${destination}`
+            : `https://www.google.com/maps/search/?api=1&query=${destination}`;
+        window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+        return;
+    }
+
+    if (!origin) {
         directionsError.value = 'Directions are not available right now.';
         return;
     }
@@ -400,20 +398,77 @@ const initializeMap = () => {
 
     mapboxgl.accessToken = props.mapbox?.token || FALLBACK_MAPBOX_TOKEN;
 
-    map = new mapboxgl.Map({
-        container: mapContainer.value,
-        style: props.mapbox?.styleLight || 'mapbox://styles/mapbox/streets-v12',
-        center: [allStores.value[0].longitude, allStores.value[0].latitude],
-        zoom: 12,
-    });
+    const baseMapStyle = {
+        version: 8,
+        sources: {
+            osm: {
+                type: 'raster',
+                tiles: [
+                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                ],
+                tileSize: 256,
+                attribution: '&copy; OpenStreetMap contributors',
+            },
+        },
+        layers: [
+            {
+                id: 'osm-base',
+                type: 'raster',
+                source: 'osm',
+            },
+        ],
+    };
 
-    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-    map.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
+    try {
+        map = new mapboxgl.Map({
+            container: mapContainer.value,
+            style: props.mapbox?.styleLight || 'mapbox://styles/mapbox/streets-v12',
+            center: [allStores.value[0].longitude, allStores.value[0].latitude],
+            zoom: 12,
+        });
+    } catch (error) {
+        mapError.value = 'Desktop WebGL map could not initialize. Showing fallback map.';
+        return;
+    }
+
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: true, showZoom: true }), 'top-right');
+    map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+    map.addControl(new mapboxgl.GeolocateControl({
+        positionOptions: {
+            enableHighAccuracy: true,
+        },
+        trackUserLocation: false,
+        showUserHeading: false,
+    }), 'top-right');
 
     map.on('load', () => {
+        mapError.value = null;
+
+        // Hide built-in Mapbox symbol overlays (labels/icons) like on UK implementation.
+        const styleLayers = map.getStyle()?.layers ?? [];
+        styleLayers
+            .filter((layer) => layer.type === 'symbol')
+            .forEach((layer) => {
+                if (layer.id) {
+                    map.setLayoutProperty(layer.id, 'visibility', 'none');
+                }
+            });
+
         rebuildMarkers();
         fitMapToStores(filteredStores.value.length ? filteredStores.value : allStores.value);
         locateUser();
+        window.setTimeout(() => map?.resize(), 100);
+        window.setTimeout(() => map?.resize(), 350);
+        window.setTimeout(() => map?.resize(), 800);
+    });
+
+    map.on('error', (event) => {
+        const statusCode = event?.error?.status || event?.error?.statusCode;
+        if ((statusCode === 401 || statusCode === 403) && map?.getStyle()?.sprite) {
+            map.setStyle(baseMapStyle);
+        }
     });
 };
 
@@ -468,6 +523,17 @@ watch(selectedStoreId, (storeId) => {
 
 onMounted(async () => {
     try {
+        if (typeof document !== 'undefined') {
+            previousBodyOverflow = document.body.style.overflow;
+            previousBodyOverscroll = document.body.style.overscrollBehaviorY;
+            document.body.style.overflow = 'hidden';
+            document.body.style.overscrollBehaviorY = 'none';
+        }
+
+        updateMapViewportHeight();
+        viewportResizeHandler = () => updateMapViewportHeight();
+        window.addEventListener('resize', viewportResizeHandler, { passive: true });
+
         const [mapboxModule] = await Promise.all([
             import('mapbox-gl'),
             import('mapbox-gl/dist/mapbox-gl.css'),
@@ -475,6 +541,14 @@ onMounted(async () => {
 
         mapboxgl = mapboxModule.default;
         initializeMap();
+
+        if (window.ResizeObserver && mapContainer.value) {
+            mapResizeObserver = new window.ResizeObserver(() => {
+                updateMapViewportHeight();
+                map?.resize();
+            });
+            mapResizeObserver.observe(mapContainer.value);
+        }
     } catch (error) {
         mapError.value = 'The Mapbox map could not be loaded.';
     }
@@ -492,88 +566,29 @@ onBeforeUnmount(() => {
         map.remove();
         map = null;
     }
+
+    if (mapResizeObserver) {
+        mapResizeObserver.disconnect();
+        mapResizeObserver = null;
+    }
+
+    if (viewportResizeHandler) {
+        window.removeEventListener('resize', viewportResizeHandler);
+        viewportResizeHandler = null;
+    }
+
+    if (typeof document !== 'undefined') {
+        document.body.style.overflow = previousBodyOverflow ?? '';
+        document.body.style.overscrollBehaviorY = previousBodyOverscroll ?? '';
+    }
 });
 </script>
 
 <template>
     <Head title="Locations" />
 
-    <section class="space-y-6 py-2">
-        <div class="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_20px_80px_rgba(15,23,42,0.12)]">
-            <div class="max-w-4xl space-y-4">
-                <span class="inline-flex rounded-full bg-brand-500 px-4 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-white">
-                    Vending locations
-                </span>
-                <h1 class="text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
-                    Find Pop Attack locations near you.
-                </h1>
-                <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                    This now uses Mapbox again with the same Pop Attack UK token pattern, while keeping the stronger AU-style locations layout and filtering structure.
-                </p>
-                <div class="flex flex-wrap gap-4 text-sm text-slate-500">
-                    <span v-if="stockLocatorUrl">
-                        <a :href="stockLocatorUrl" class="font-semibold text-brand-500 hover:underline">
-                            Click here to Check Stock Levels
-                        </a>
-                    </span>
-                    <span>Number Of Shops: {{ shopCount }}</span>
-                    <span v-if="locatingUser">Loading your location...</span>
-                    <span v-else-if="nearestStore">Closest store: {{ nearestStore.name }} ({{ formatDistance(nearestStore.distanceFromUser) }})</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_100px_rgba(15,23,42,0.12)]">
-        <div class="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
-            <label class="space-y-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Search Location</span>
-                <input v-model="search" type="text" class="locator-filter-input" placeholder="Suburb, postcode, or venue">
-            </label>
-
-            <label class="space-y-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Category</span>
-                <select v-model="selectedCategory" class="locator-filter-input">
-                    <option value="all">All Categories</option>
-                    <option v-for="category in categories.filter((item) => item !== 'all')" :key="category" :value="category">
-                        {{ category }}
-                    </option>
-                </select>
-            </label>
-
-            <label class="space-y-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Distance Range</span>
-                <select v-model="selectedRadius" class="locator-filter-input">
-                    <option value="all">Radius: Km</option>
-                    <option value="10">10 km</option>
-                    <option value="25">25 km</option>
-                    <option value="50">50 km</option>
-                    <option value="100">100 km</option>
-                </select>
-            </label>
-
-            <label class="space-y-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status</span>
-                <select v-model="selectedStatus" class="locator-filter-input">
-                    <option value="all">All</option>
-                    <option value="Open">Open</option>
-                    <option value="Closed">Closed</option>
-                </select>
-            </label>
-
-            <div class="flex items-end gap-3">
-                <button type="button" class="primary-button whitespace-nowrap" @click="searchStores">
-                    Search
-                </button>
-                <button type="button" class="secondary-button whitespace-nowrap !border-slate-300 !bg-white !text-slate-800" @click="locateUser">
-                    Use Location
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <section class="mt-6 relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-100 shadow-[0_24px_100px_rgba(15,23,42,0.16)]">
-        <div class="locator-shell">
+    <section ref="sectionRef" class="-mt-[3px] w-full bg-slate-100">
+        <div class="locator-shell" :style="{ height: mapViewportHeight, minHeight: mapViewportHeight }">
             <aside class="locator-store-panel" :class="{ 'is-open': panelOpen }">
                 <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                     <div>
@@ -628,120 +643,20 @@ onBeforeUnmount(() => {
                 </div>
             </aside>
 
-            <div class="absolute left-4 top-4 z-[500]">
+            <div class="absolute left-4 top-4 z-[500] flex items-center gap-3">
                 <button type="button" class="locator-toggle-button" @click="togglePanel">
-                    {{ panelOpen ? 'Hide Stores' : 'Show Stores' }}
+                    {{ panelToggleLabel }}
+                </button>
+                <button type="button" class="secondary-button whitespace-nowrap !border-slate-300 !bg-white !text-slate-800" @click="locateUser">
+                    {{ locatingUser ? 'Locating...' : 'Use Location' }}
                 </button>
             </div>
 
             <div ref="mapContainer" class="locator-map" />
 
-            <div v-if="mapError" class="absolute inset-0 z-[600] flex items-center justify-center bg-white/90 p-6 text-center text-slate-700">
-                {{ mapError }}
-            </div>
-        </div>
-    </section>
-
-    <section class="grid gap-6 py-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div class="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_20px_80px_rgba(15,23,42,0.12)]">
-            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-500">Description</p>
-            <div v-if="selectedStore" class="mt-4 space-y-5">
-                <div>
-                    <h2 class="text-3xl font-black tracking-tight text-slate-950">{{ selectedStore.name }}</h2>
-                    <p class="mt-2 text-base font-semibold text-brand-500">{{ selectedStore.location }}</p>
-                    <p class="mt-4 text-base leading-8 text-slate-600">{{ selectedStore.description }}</p>
-                </div>
-
-                <div class="grid gap-4 md:grid-cols-2">
-                    <div class="rounded-[1.5rem] bg-slate-50 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Address</p>
-                        <p class="mt-3 text-base leading-7 text-slate-700">{{ selectedStore.address }}</p>
-                    </div>
-                    <div class="rounded-[1.5rem] bg-slate-50 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Popular Categories</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            <span
-                                v-for="product in selectedStore.products ?? []"
-                                :key="product"
-                                class="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 shadow-sm"
-                            >
-                                {{ product }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap gap-4">
-                    <button type="button" class="primary-button" @click="requestDirections(selectedStore)">
-                        GET DIRECTIONS
-                    </button>
-                    <a
-                        v-if="stockLocatorUrl"
-                        :href="stockLocatorUrl"
-                        class="secondary-button !border-slate-300 !bg-white !text-slate-800"
-                    >
-                        CHECK STOCK LEVELS
-                    </a>
-                </div>
-
-                <p v-if="directionsError" class="text-sm text-rose-500">{{ directionsError }}</p>
-            </div>
-        </div>
-
-        <div class="space-y-6">
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_20px_80px_rgba(15,23,42,0.12)]">
-                <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-500">Opening Hours</p>
-                <div v-if="selectedStore?.hours" class="mt-4 space-y-3">
-                    <div
-                        v-for="(hours, day) in selectedStore.hours"
-                        :key="day"
-                        class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm"
-                    >
-                        <span class="font-semibold capitalize text-slate-950">{{ day }}</span>
-                        <span class="text-slate-600">{{ hours }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div v-if="directions" class="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_20px_80px_rgba(15,23,42,0.12)]">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-500">GET DIRECTIONS</p>
-                        <h3 class="mt-2 text-2xl font-black tracking-tight text-slate-950">{{ directions.storeName }}</h3>
-                        <p class="mt-3 text-sm text-slate-500">
-                            {{ directions.distanceKm }} Km · {{ directions.durationMinutes }} minutes
-                        </p>
-                    </div>
-                    <button type="button" class="text-2xl leading-none text-slate-400 transition hover:text-slate-950" @click="clearDirections">
-                        ×
-                    </button>
-                </div>
-
-                <div class="mt-6 space-y-3">
-                    <div
-                        v-for="(step, index) in directions.steps"
-                        :key="`${step.maneuver?.instruction}-${index}`"
-                        class="flex items-start gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-                    >
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
-                            {{ index + 1 }}
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-sm font-medium text-slate-950">{{ step.maneuver?.instruction }}</p>
-                            <p class="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">{{ (step.distance / 1000).toFixed(1) }} Km</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_20px_80px_rgba(15,23,42,0.12)]">
-                <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-500">Use my location to find the closest service provider near me</p>
-                <p class="mt-3 text-base leading-8 text-slate-600">
-                    This mirrors the intent of the live AU locator utility while using the Pop Attack UK Mapbox approach underneath for the map, directions, and marker interactions.
-                </p>
-                <div class="mt-5 space-y-2 text-sm text-slate-600">
-                    <p v-if="contact.phone"><strong class="text-slate-950">Phone:</strong> {{ contact.phone }}</p>
-                    <p v-if="contact.email"><strong class="text-slate-950">Email:</strong> {{ contact.email }}</p>
+            <div v-if="mapError" class="absolute inset-0 z-[600] bg-white/95 p-6 text-slate-700">
+                <div class="mb-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+                    {{ mapError }}
                 </div>
             </div>
         </div>
@@ -749,28 +664,19 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.locator-filter-input {
-    width: 100%;
-    border-radius: 1rem;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    padding: 0.95rem 1rem;
-    color: #0f172a;
-    outline: none;
-}
-
-.locator-filter-input:focus {
-    border-color: #ff0000;
-}
-
 .locator-shell {
     position: relative;
-    min-height: 42rem;
+    height: 100dvh;
+    min-height: 100dvh;
 }
 
 .locator-map {
-    height: 42rem;
+    height: 100%;
     width: 100%;
+}
+
+.locator-map.mapboxgl-map {
+    height: 100% !important;
 }
 
 .locator-store-panel {
@@ -832,115 +738,196 @@ onBeforeUnmount(() => {
     box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
 }
 
-:deep(.mapboxgl-canvas),
-:deep(.mapboxgl-map) {
+:deep(.mapboxgl-canvas) {
     height: 100%;
     width: 100%;
+    filter: none !important;
+    opacity: 1 !important;
 }
 
 :deep(.locator-marker) {
     display: flex;
-    height: 3.25rem;
-    width: 3.25rem;
+    height: 3.9rem;
+    width: 3.9rem;
     align-items: center;
     justify-content: center;
-    border-radius: 9999px;
-    border: 4px solid #fff;
-    background: #ff0000;
-    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-    color: white;
     cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    padding: 0;
+    background: transparent;
+    border: 0;
 }
 
 :deep(.locator-marker.is-selected) {
-    background: #111827;
-    transform: scale(1.06);
+    transform: scale(1.05);
+}
+
+:deep(.locator-marker-pin) {
+    position: relative;
+    display: flex;
+    height: 3.05rem;
+    width: 3.05rem;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    background: #ff0000;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
+    transform: rotate(-45deg);
+}
+
+:deep(.locator-marker.is-selected .locator-marker-pin) {
+    background: #ff0000;
+}
+
+:deep(.locator-marker-pin img) {
+    height: 1.75rem;
+    width: 1.75rem;
+    border-radius: 9999px;
+    object-fit: cover;
+    background: #fff;
+    transform: rotate(45deg);
+}
+
+:deep(.mapboxgl-ctrl-logo),
+:deep(.mapboxgl-ctrl-attrib) {
+    display: none !important;
 }
 
 :deep(.mapboxgl-popup-content) {
-    border-radius: 1.25rem;
+    border-radius: 1.5rem;
     padding: 0;
     box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+    width: min(22rem, 86vw);
+    max-width: min(22rem, 86vw);
+    box-sizing: border-box;
 }
 
 :deep(.locator-popup-card) {
-    padding: 1.2rem;
+    width: 100%;
+    padding: 1.3rem 1.15rem 1.15rem;
+    text-align: center;
+    box-sizing: border-box;
 }
 
-:deep(.locator-popup-card h3) {
+:deep(.locator-popup-title) {
     color: #0f172a;
-    font-size: 1.05rem;
+    font-size: 1.08rem;
+    line-height: 1.12;
     font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 :deep(.locator-popup-address) {
-    margin-top: 0.45rem;
+    margin-top: 0.65rem;
     color: #64748b;
-    font-size: 0.92rem;
-    line-height: 1.6;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 :deep(.locator-popup-distance) {
-    margin-top: 0.7rem;
+    margin: 0.85rem auto 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid #fca5a5;
+    border-radius: 0.75rem;
+    background: #fee2e2;
+    padding: 0.55rem 0.9rem;
     color: #ff0000;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.02em;
 }
 
-:deep(.locator-popup-tags) {
-    margin-top: 0.9rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-}
-
-:deep(.locator-popup-tags span) {
-    border-radius: 9999px;
-    background: #f8fafc;
-    padding: 0.45rem 0.7rem;
-    color: #475569;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+:deep(.locator-popup-distance-pin) {
+    font-size: 0.72rem;
 }
 
 :deep(.locator-popup-link) {
-    margin-top: 1rem;
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.6rem;
+    padding: 0.74rem 0.95rem;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+}
+
+:deep(.locator-popup-actions) {
+    margin-top: 1.2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+:deep(.locator-popup-link.is-primary) {
+    background: #ff0000;
+    box-shadow: 0 10px 22px rgba(220, 38, 38, 0.35);
+}
+
+:deep(.locator-popup-link.is-secondary) {
+    border: 1px solid #d1d5db;
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+:deep(.mapboxgl-popup-close-button) {
+    top: -0.8rem;
+    right: calc(50% - 0.8rem);
+    height: 1.7rem;
+    width: 1.7rem;
+    border: 3px solid #fff;
     border-radius: 9999px;
     background: #ff0000;
-    padding: 0.8rem 1rem;
-    color: white;
-    font-size: 0.75rem;
+    color: #fff;
+    font-size: 1rem;
     font-weight: 800;
-    letter-spacing: 0.12em;
-    text-decoration: none;
-    text-transform: uppercase;
+    line-height: 1;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
+}
+
+:deep(.mapboxgl-popup-close-button:hover) {
+    background: #e11d48;
 }
 
 @media (max-width: 960px) {
+    .locator-shell {
+        height: 100dvh;
+        min-height: 100dvh;
+    }
+
     .locator-store-panel {
         right: 1rem;
         width: auto;
+        top: 4.75rem;
+    }
+
+    .locator-toggle-button {
+        font-size: 0.72rem;
+        padding: 0.62rem 0.85rem;
     }
 }
 
 @media (max-width: 768px) {
-    .locator-map {
-        height: 36rem;
+    .locator-shell {
+        height: 100dvh;
+        min-height: 100dvh;
     }
 
     .locator-store-panel {
         left: 0.75rem;
         right: 0.75rem;
         bottom: 0.75rem;
+        top: 4.75rem;
         width: auto;
     }
 }

@@ -1,5 +1,7 @@
 <script setup>
+import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
+import Breadcrumbs from '../../Components/Breadcrumbs.vue';
 import ProductCard from '../../Components/ProductCard.vue';
 import StorefrontLayout from '../../Layouts/StorefrontLayout.vue';
 
@@ -7,7 +9,7 @@ defineOptions({
     layout: StorefrontLayout,
 });
 
-defineProps({
+const props = defineProps({
     collection: {
         type: Object,
         required: true,
@@ -21,14 +23,24 @@ defineProps({
         required: true,
     },
 });
+
+const breadcrumbItems = computed(() => [
+    { label: 'Home', href: '/' },
+    { label: 'Catalog', href: '/shop' },
+    { label: props.collection.name },
+]);
 </script>
 
 <template>
     <Head :title="collection.name" />
 
+    <section class="mb-4 mt-2">
+        <Breadcrumbs :items="breadcrumbItems" />
+    </section>
+
     <section class="glass-panel overflow-hidden">
         <div class="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
-            <div class="aspect-[4/3] bg-slate-900">
+            <div class="aspect-[4/3] bg-slate-100">
                 <img
                     v-if="collection.image"
                     :src="collection.image"
@@ -37,7 +49,7 @@ defineProps({
                 >
                 <div
                     v-else
-                    class="flex h-full w-full items-end bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.16),transparent_35%)] p-8"
+                    class="flex h-full w-full items-end bg-slate-100 p-8"
                 >
                     <span class="pill">Collection hero</span>
                 </div>
@@ -45,11 +57,11 @@ defineProps({
 
             <div class="space-y-5 p-8 lg:p-10">
                 <span class="pill">Collection</span>
-                <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+                <h1 class="text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">
                     {{ collection.name }}
                 </h1>
-                <p class="max-w-2xl text-base leading-8 text-slate-300">
-                    {{ collection.description || 'Use collection landing pages for campaigns, themed edits, and category-led discovery that makes large catalogs easier to browse.' }}
+                <p v-if="collection.description" class="max-w-2xl text-base leading-8 text-slate-600">
+                    {{ collection.description }}
                 </p>
             </div>
         </div>
@@ -64,20 +76,18 @@ defineProps({
     </section>
 
     <section v-else class="glass-panel mt-8 p-10 text-center">
-        <h2 class="text-2xl font-semibold text-white">No products published here yet</h2>
-        <p class="mt-3 text-slate-300">
-            Attach products to this Lunar collection and this landing page will populate automatically.
-        </p>
+        <h2 class="text-2xl font-semibold text-slate-950">No products published here yet</h2>
+        <p class="mt-3 text-slate-600">Products for this collection will appear here once available.</p>
     </section>
 
-    <section class="mt-10 flex items-center justify-between gap-4 border-t border-white/10 pt-6 text-sm text-slate-400">
+    <section class="mt-10 flex items-center justify-between gap-4 border-t border-slate-200 pt-6 text-sm text-slate-500">
         <p>
             Showing
-            <span class="font-medium text-slate-200">{{ pagination.from ?? 0 }}</span>
+            <span class="font-medium text-slate-900">{{ pagination.from ?? 0 }}</span>
             to
-            <span class="font-medium text-slate-200">{{ pagination.to ?? 0 }}</span>
+            <span class="font-medium text-slate-900">{{ pagination.to ?? 0 }}</span>
             of
-            <span class="font-medium text-slate-200">{{ pagination.total }}</span>
+            <span class="font-medium text-slate-900">{{ pagination.total }}</span>
             products
         </p>
 

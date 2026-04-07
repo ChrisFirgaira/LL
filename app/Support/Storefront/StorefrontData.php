@@ -116,6 +116,7 @@ class StorefrontData
 
         return [
             'id' => $product->id,
+            'defaultVariantId' => $variant?->id,
             'name' => static::productName($product),
             'description' => static::translatedAttribute($product, 'description'),
             'url' => static::productUrl($product),
